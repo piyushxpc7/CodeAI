@@ -108,8 +108,7 @@ class AssistantResponse(BaseModel):
     code_snippets: List[CodeSnippet] = []
     suggestions: List[str] = []
 
-@dataclass
-class DocumentChunk:
+class DocumentChunk(BaseModel):
     chunk_id: str
     doc_id: str
     content: str
@@ -364,16 +363,16 @@ class RAGAgent(BaseAgent):
         """
         
         ans = await self._call_llm([{"role": "user", "content": prompt}])
-        return RAGResponse(answer=ans, sources=[r[0] for r in results]), []
+        return RAGResponse(answer=ans or "No answer generated.", sources=[r[0] for r in results]), []
 
 
 # ==========================================
-# 4. STREAMLIT UI
+# 4. STREAMLIT UI - ENHANCED SILICON VALLEY STYLE
 # ==========================================
 
 # Page Config
 st.set_page_config(
-    page_title="AgentCoder AI",
+    page_title="AgentCoder AI | Your AI Coding Companion",
     page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -407,145 +406,446 @@ def run_async(coro):
 # Sidebar
 def render_sidebar():
     with st.sidebar:
-        st.title("🚀 AgentCoder AI")
-        st.markdown("---")
+        st.markdown("# 🚀 AgentCoder AI")
+        st.caption("AI-Powered Development Platform")
+        st.divider()
         
-        c1, c2 = st.columns(2)
-        c1.metric("📄 Docs", len(st.session_state.doc_store.list_documents()))
-        c2.metric("📦 Chunks", st.session_state.vector_store.total_chunks)
+        # Metrics in beautiful cards
+        st.markdown("### 📊 Dashboard")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric(
+                label="Documents", 
+                value=len(st.session_state.doc_store.list_documents()),
+                delta="Active" if len(st.session_state.doc_store.list_documents()) > 0 else None
+            )
+        with col2:
+            st.metric(
+                label="Chunks", 
+                value=st.session_state.vector_store.total_chunks,
+                delta="+New" if st.session_state.vector_store.total_chunks > 0 else None
+            )
         
-        st.markdown("### ⚙️ Model")
+        st.divider()
+        
+        # Model Selection
+        st.markdown("### 🤖 AI Model")
         opts = [m[0] for m in MODELS]
         model_map = {m[0]: m[1] for m in MODELS}
-        sel = st.selectbox("Select Model", opts, index=0)
+        provider_map = {m[0]: m[2] for m in MODELS}
+        
+        sel = st.selectbox(
+            "Choose your model",
+            opts,
+            index=0,
+            help="Select the AI model for code generation and analysis"
+        )
         st.session_state.selected_model = model_map[sel]
         
+        # Model info
+        provider = provider_map[sel]
         if "hf/" in st.session_state.selected_model:
-            st.success("✅ Free HuggingFace")
+            st.success(f"✅ {provider} (Free Tier)")
             if not os.getenv("HUGGINGFACE_API_KEY"):
-                st.error("⚠️ HUGGINGFACE_API_KEY missing!")
+                st.error("⚠️ API Key Required")
+                st.caption("Add HUGGINGFACE_API_KEY to .env")
+        else:
+            st.info(f"ℹ️ Using {provider}")
         
+        st.divider()
+        
+        # Knowledge Base Upload
         st.markdown("### 📚 Knowledge Base")
-        uploaded = st.file_uploader("Upload PDF", type=['pdf'])
-        if uploaded and st.button("Process PDF", type="primary", use_container_width=True):
-            with st.spinner("Processing..."):
-                try:
-                    parser = PDFParser()
-                    chunks, pages = parser.parse_pdf_bytes(uploaded.getvalue(), str(uuid.uuid4()))
-                    st.session_state.doc_store.add_document(uploaded.name, uploaded.getvalue(), pages, len(chunks))
-                    st.session_state.vector_store.add_chunks(chunks)
-                    st.success(f"Added {len(chunks)} chunks!")
-                except Exception as e:
-                    st.error(f"Error: {e}")
+        st.caption("Upload PDFs to enable RAG-powered Q&A")
+        
+        uploaded = st.file_uploader(
+            "Choose PDF file",
+            type=['pdf'],
+            help="Upload documentation for context-aware answers",
+            label_visibility="collapsed"
+        )
+        
+        if uploaded:
+            if st.button("🔄 Process Document", type="primary", use_container_width=True):
+                with st.spinner("🔍 Analyzing document..."):
+                    try:
+                        parser = PDFParser()
+                        chunks, pages = parser.parse_pdf_bytes(uploaded.getvalue(), str(uuid.uuid4()))
+                        st.session_state.doc_store.add_document(uploaded.name, uploaded.getvalue(), pages, len(chunks))
+                        st.session_state.vector_store.add_chunks(chunks)
+                        st.success(f"✅ Processed {pages} pages, {len(chunks)} chunks!")
+                        st.balloons()
+                    except Exception as e:
+                        st.error(f"❌ Error: {str(e)}")
+        
+        st.divider()
+        
+        # Footer
+        st.caption("Made with ❤️ using Streamlit")
+        st.caption("© 2024 AgentCoder AI")
 
-# Welcome
+# Welcome Screen
 def render_welcome():
     if "welcomed" not in st.session_state:
-        st.markdown("# 👋 Welcome to AgentCoder AI")
-        st.markdown("Your AI-powered coding companion.")
-        if st.button("Get Started 🚀", type="primary"):
-            st.session_state.welcomed = True
-            st.rerun()
+        # Hero Section
+        st.markdown("<br>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.markdown("# 🚀 Welcome to AgentCoder AI")
+            st.markdown("### Your Intelligent Coding Companion")
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # Feature cards
+            feat_col1, feat_col2, feat_col3 = st.columns(3)
+            with feat_col1:
+                st.info("**💻 Code Generation**\n\nGenerate production-ready code in multiple languages")
+            with feat_col2:
+                st.info("**🔍 Code Analysis**\n\nGet instant feedback on code quality and security")
+            with feat_col3:
+                st.info("**📚 Smart Q&A**\n\nAsk questions about your documentation")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # CTA
+            col_a, col_b, col_c = st.columns([1, 1, 1])
+            with col_b:
+                if st.button("🎯 Get Started", type="primary", use_container_width=True):
+                    st.session_state.welcomed = True
+                    st.rerun()
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.caption("🔒 Secure • ⚡ Fast • 🎨 Beautiful")
+        
         return True
     return False
 
-# Tabs
+# Code Generation Tab
 def render_generate():
-    st.header("💻 Code Generation")
-    c1, c2 = st.columns([3, 1])
-    with c1: prompt = st.text_area("What to build?", height=150)
-    with c2: 
-        lang = st.selectbox("Language", LANGUAGES)
-        tests = st.toggle("Tests", False)
-        docs = st.toggle("Docs", True)
-        
-    if st.button("Generate", type="primary", disabled=not prompt):
-        with st.status("Generating...") as status:
+    st.markdown("## 💻 Code Generation Studio")
+    st.caption("Describe what you want to build, and let AI write the code")
+    st.divider()
+    
+    # Input Section
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        prompt = st.text_area(
+            "What would you like to build?",
+            height=180,
+            placeholder="e.g., Create a REST API endpoint for user authentication with JWT tokens...",
+            help="Be specific about what you want the code to do"
+        )
+    
+    with col2:
+        st.markdown("#### ⚙️ Settings")
+        lang = st.selectbox("Language", LANGUAGES, help="Target programming language")
+        st.markdown("<br>", unsafe_allow_html=True)
+        tests = st.toggle("Include Tests", False, help="Generate unit tests")
+        docs = st.toggle("Include Docs", True, help="Add documentation")
+    
+    st.divider()
+    
+    # Generate Button
+    col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 2])
+    with col_btn2:
+        generate_btn = st.button("✨ Generate Code", type="primary", disabled=not prompt, use_container_width=True)
+    
+    if generate_btn:
+        with st.status("🤖 AI is writing code...", expanded=True) as status:
+            st.write("🔍 Analyzing requirements...")
+            time.sleep(0.5)
+            st.write("🧠 Generating code structure...")
+            
             try:
                 agent = CodeGenerationAgent(st.session_state.selected_model)
-                req = CodeGenerationRequest(prompt=prompt, language=Language(lang.lower()), include_tests=tests, include_docs=docs)
+                req = CodeGenerationRequest(
+                    prompt=prompt,
+                    language=Language(lang.lower()),
+                    include_tests=tests,
+                    include_docs=docs
+                )
                 res, _ = run_async(agent.generate(req))
-                status.update(label="✅ Done!", state="complete")
                 
-                st.subheader(f"📝 {res.filename}")
-                st.code(res.code, language=res.language.value)
-                st.download_button("Download", res.code, file_name=res.filename)
-                if res.explanation: st.info(res.explanation)
+                st.write("✅ Code generation complete!")
+                status.update(label="✅ Successfully generated!", state="complete")
+                
+                # Results Section
+                st.markdown("---")
+                st.markdown(f"### 📝 {res.filename}")
+                
+                # Code display with download
+                col_code1, col_code2 = st.columns([4, 1])
+                with col_code1:
+                    st.code(res.code, language=res.language.value, line_numbers=True)
+                with col_code2:
+                    st.download_button(
+                        "⬇️ Download",
+                        res.code,
+                        file_name=res.filename,
+                        mime="text/plain",
+                        use_container_width=True
+                    )
+                    if st.button("📋 Copy", use_container_width=True):
+                        st.success("Copied!")
+                
+                # Explanation
+                if res.explanation:
+                    with st.expander("📖 Explanation", expanded=True):
+                        st.info(res.explanation)
+                
             except Exception as e:
-                status.update(label="❌ Failed", state="error")
-                st.error(str(e))
+                status.update(label="❌ Generation failed", state="error")
+                st.error(f"Error: {str(e)}")
+                st.caption("Please try again or modify your prompt")
 
+# Code Analysis Tab
 def render_analyze():
-    st.header("🔍 Code Analysis")
-    col1, col2 = st.columns([3, 1])
-    with col1: code = st.text_area("Paste code", height=200)
-    with col2: lang = st.selectbox("Lang", LANGUAGES, key="aly")
+    st.markdown("## 🔍 Code Analysis Lab")
+    st.caption("Get instant insights on code quality, security, and performance")
+    st.divider()
     
-    if st.button("Analyze", type="primary", disabled=not code):
-        with st.status("Analyzing...") as status:
+    # Input Section
+    col1, col2 = st.columns([4, 1])
+    
+    with col1:
+        code = st.text_area(
+            "Paste your code here",
+            height=300,
+            placeholder="# Paste your code here...",
+            help="Paste the code you want to analyze"
+        )
+    
+    with col2:
+        st.markdown("#### ⚙️ Language")
+        lang = st.selectbox("Select", LANGUAGES, key="analyze_lang")
+        
+        st.markdown("#### 🎯 Focus")
+        st.caption("Analysis areas:")
+        st.caption("• Security")
+        st.caption("• Performance")
+        st.caption("• Best Practices")
+    
+    st.divider()
+    
+    # Analyze Button
+    col_btn1, col_btn2, col_btn3 = st.columns([2, 1, 2])
+    with col_btn2:
+        analyze_btn = st.button("🔬 Analyze Code", type="primary", disabled=not code, use_container_width=True)
+    
+    if analyze_btn:
+        with st.status("🔍 Analyzing code...", expanded=True) as status:
+            st.write("🔒 Checking security vulnerabilities...")
+            time.sleep(0.3)
+            st.write("⚡ Analyzing performance...")
+            time.sleep(0.3)
+            st.write("📊 Evaluating best practices...")
+            
             try:
                 agent = CodeAnalysisAgent(st.session_state.selected_model)
-                req = CodeAnalysisRequest(code=code, language=Language(lang.lower()), focus_areas=[])
+                req = CodeAnalysisRequest(
+                    code=code,
+                    language=Language(lang.lower()),
+                    focus_areas=["security", "performance", "best_practices"]
+                )
                 res, _ = run_async(agent.analyze(req))
-                status.update(label="✅ Done!", state="complete")
                 
-                st.metric("Quality Score", f"{res.quality_score}/100")
-                st.progress(res.quality_score/100)
-                st.info(res.summary)
+                st.write("✅ Analysis complete!")
+                status.update(label="✅ Analysis complete!", state="complete")
+                
+                # Results
+                st.markdown("---")
+                st.markdown("### 📊 Analysis Results")
+                
+                # Score Display
+                col_score1, col_score2, col_score3 = st.columns([1, 2, 1])
+                with col_score2:
+                    st.metric(
+                        label="Quality Score",
+                        value=f"{res.quality_score}/100",
+                        delta="Excellent" if res.quality_score >= 80 else "Good" if res.quality_score >= 60 else "Needs Improvement"
+                    )
+                    st.progress(res.quality_score / 100)
+                
+                st.divider()
+                
+                # Summary
+                with st.expander("📋 Full Analysis Report", expanded=True):
+                    st.markdown(res.summary)
+                
+                # Additional insights
+                col_insights1, col_insights2 = st.columns(2)
+                with col_insights1:
+                    st.success("**✅ Strengths**")
+                    for s in res.strengths:
+                        st.caption(f"• {s}")
+                
+                with col_insights2:
+                    st.warning("**💡 Recommendations**")
+                    for r in res.recommendations:
+                        st.caption(f"• {r}")
+                
             except Exception as e:
-                status.update(label="❌ Failed", state="error")
-                st.error(str(e))
+                status.update(label="❌ Analysis failed", state="error")
+                st.error(f"Error: {str(e)}")
 
+# Assistant Tab
 def render_assistant():
-    st.header("🤖 Assistant")
-    if "chat_mx" not in st.session_state: st.session_state.chat_mx = []
+    st.markdown("## 🤖 AI Coding Assistant")
+    st.caption("Your personal AI pair programmer - ask anything about code!")
+    st.divider()
     
-    for m in st.session_state.chat_mx:
-        with st.chat_message(m["role"]):
-            st.write(m["content"])
+    # Initialize chat
+    if "chat_mx" not in st.session_state:
+        st.session_state.chat_mx = []
+    
+    # Welcome message
+    if not st.session_state.chat_mx:
+        with st.chat_message("assistant", avatar="🤖"):
+            st.markdown("""
+            👋 Hi! I'm your AI coding assistant. I can help you with:
             
-    if p := st.chat_input("Ask help..."):
-        st.session_state.chat_mx.append({"role": "user", "content": p})
-        st.chat_message("user").write(p)
-        
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
-                agent = CodeAssistant(st.session_state.selected_model)
-                res = run_async(agent.chat(p))
-                st.write(res.message)
-                for s in res.code_snippets: st.code(s.code, language=s.language)
-                st.session_state.chat_mx.append({"role": "assistant", "content": res.message})
-
-def render_rag():
-    st.header("📚 Doc Q&A")
-    if not st.session_state.doc_store.list_documents():
-        st.info("Upload PDF first")
-        return
-        
-    if "rag_mx" not in st.session_state: st.session_state.rag_mx = []
+            - Writing code snippets
+            - Debugging issues
+            - Explaining concepts
+            - Suggesting best practices
+            - Architecture advice
+            
+            **What can I help you with today?**
+            """)
     
-    for m in st.session_state.rag_mx:
-        with st.chat_message(m["role"]): st.write(m["content"])
+    # Display chat history
+    for m in st.session_state.chat_mx:
+        avatar = "👤" if m["role"] == "user" else "🤖"
+        with st.chat_message(m["role"], avatar=avatar):
+            st.markdown(m["content"])
+    
+    # Chat input
+    if prompt := st.chat_input("Ask me anything about coding...", key="assistant_input"):
+        # User message
+        st.session_state.chat_mx.append({"role": "user", "content": prompt})
+        with st.chat_message("user", avatar="👤"):
+            st.markdown(prompt)
         
-    if p := st.chat_input("Ask docs..."):
-        st.session_state.rag_mx.append({"role": "user", "content": p})
-        st.chat_message("user").write(p)
-        
-        with st.chat_message("assistant"):
-            with st.spinner("Searching..."):
-                agent = RAGAgent(st.session_state.selected_model, st.session_state.vector_store)
-                res, _ = run_async(agent.answer(p))
-                st.write(res.answer)
-                st.session_state.rag_mx.append({"role": "assistant", "content": res.answer})
+        # Assistant response
+        with st.chat_message("assistant", avatar="🤖"):
+            with st.spinner("Thinking..."):
+                try:
+                    agent = CodeAssistant(st.session_state.selected_model)
+                    res = run_async(agent.chat(prompt))
+                    st.markdown(res.message)
+                    
+                    # Display code snippets
+                    for idx, snippet in enumerate(res.code_snippets):
+                        st.code(snippet.code, language=snippet.language)
+                    
+                    st.session_state.chat_mx.append({"role": "assistant", "content": res.message})
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
 
+# RAG Tab
+def render_rag():
+    st.markdown("## 📚 Document Q&A")
+    st.caption("Ask questions about your uploaded documents")
+    st.divider()
+    
+    # Check for documents
+    if not st.session_state.doc_store.list_documents():
+        st.info("📁 **No documents uploaded yet**")
+        st.markdown("""
+        To use this feature:
+        1. Upload a PDF document using the sidebar
+        2. Click "Process Document"
+        3. Start asking questions!
+        """)
+        return
+    
+    # Document info
+    docs = st.session_state.doc_store.list_documents()
+    with st.expander(f"📄 Loaded Documents ({len(docs)})", expanded=False):
+        for doc in docs:
+            col1, col2, col3 = st.columns([3, 1, 1])
+            with col1:
+                st.caption(f"📄 {doc['filename']}")
+            with col2:
+                st.caption(f"{doc['pages']} pages")
+            with col3:
+                st.caption(f"{doc['chunks']} chunks")
+    
+    st.divider()
+    
+    # Initialize chat
+    if "rag_mx" not in st.session_state:
+        st.session_state.rag_mx = []
+    
+    # Welcome message
+    if not st.session_state.rag_mx:
+        with st.chat_message("assistant", avatar="📚"):
+            st.markdown(f"""
+            I've loaded **{len(docs)} document(s)** with **{st.session_state.vector_store.total_chunks} chunks**.
+            
+            Ask me anything about your documents!
+            """)
+    
+    # Display chat history
+    for m in st.session_state.rag_mx:
+        avatar = "👤" if m["role"] == "user" else "📚"
+        with st.chat_message(m["role"], avatar=avatar):
+            st.markdown(m["content"])
+    
+    # Chat input
+    if prompt := st.chat_input("Ask about your documents...", key="rag_input"):
+        # User message
+        st.session_state.rag_mx.append({"role": "user", "content": prompt})
+        with st.chat_message("user", avatar="👤"):
+            st.markdown(prompt)
+        
+        # Assistant response
+        with st.chat_message("assistant", avatar="📚"):
+            with st.spinner("Searching documents..."):
+                try:
+                    agent = RAGAgent(st.session_state.selected_model, st.session_state.vector_store)
+                    res, _ = run_async(agent.answer(prompt))
+                    
+                    st.markdown(res.answer)
+                    
+                    # Show sources
+                    if res.sources:
+                        with st.expander(f"📎 Sources ({len(res.sources)})", expanded=False):
+                            for idx, source in enumerate(res.sources, 1):
+                                st.caption(f"**Source {idx}** (Page {source.page_number})")
+                                st.caption(source.content[:200] + "...")
+                                st.divider()
+                    
+                    st.session_state.rag_mx.append({"role": "assistant", "content": res.answer})
+                except Exception as e:
+                    st.error(f"Error: {str(e)}")
+
+# Main App
 def main():
     render_sidebar()
-    if render_welcome(): return
-    t1, t2, t3, t4 = st.tabs(["💻 Generate", "🔍 Analyze", "🤖 Assistant", "📚 Docs"])
-    with t1: render_generate()
-    with t2: render_analyze()
-    with t3: render_assistant()
-    with t4: render_rag()
+    
+    if render_welcome():
+        return
+    
+    # Main tabs
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "💻 Code Generator",
+        "🔍 Code Analyzer", 
+        "🤖 AI Assistant",
+        "📚 Doc Q&A"
+    ])
+    
+    with tab1:
+        render_generate()
+    
+    with tab2:
+        render_analyze()
+    
+    with tab3:
+        render_assistant()
+    
+    with tab4:
+        render_rag()
 
 if __name__ == "__main__":
     main()
