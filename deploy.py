@@ -363,7 +363,16 @@ class RAGAgent(BaseAgent):
         """
         
         ans = await self._call_llm([{"role": "user", "content": prompt}])
-        return RAGResponse(answer=ans or "No answer generated.", sources=[r[0] for r in results]), []
+         # Convert sources to dicts to avoid Pydantic validation issues
+        source_objs = [r[0] for r in results]
+        try:
+            # Pydantic v2
+            sources_data = [s.model_dump() for s in source_objs]
+        except AttributeError:
+            # Fallback
+            sources_data = [s.__dict__ for s in source_objs]
+            
+        return RAGResponse(answer=ans or "No answer generated.", sources=sources_data), []
 
 
 # ==========================================
